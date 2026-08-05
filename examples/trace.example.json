@@ -1,0 +1,27 @@
+{
+  "model": "kimi-k3",
+  "topo": {
+    "name": "kimi-k3",
+    "n_experts": 896,
+    "n_active": 16,
+    "expert_packed_bytes": 1610612736
+  },
+  "pid": 4242,
+  "started_at": "2026-08-05T13:45:00Z",
+  "ended_at": "2026-08-05T13:45:25Z",
+  "samples": [
+    { "t": "2026-08-05T13:45:00Z", "read_bytes": 0, "tokens_so_far": 0 },
+    { "t": "2026-08-05T13:45:05Z", "read_bytes": 77309411328, "tokens_so_far": 1, "bytes_per_token": 77309411328 },
+    { "t": "2026-08-05T13:45:10Z", "read_bytes": 154618822656, "tokens_so_far": 2, "bytes_per_token": 77309411328 },
+    { "t": "2026-08-05T13:45:15Z", "read_bytes": 231928233984, "tokens_so_far": 3, "bytes_per_token": 77309411328 },
+    { "t": "2026-08-05T13:45:20Z", "read_bytes": 309237645312, "tokens_so_far": 4, "bytes_per_token": 77309411328 },
+    { "t": "2026-08-05T13:45:25Z", "read_bytes": 386547056640, "tokens_so_far": 5, "bytes_per_token": 77309411328 }
+  ],
+  "final_verdict": {
+    "reuse_ratio": 0.3333333333333333,
+    "reread_rate_x": 3.0,
+    "classification": "pathological_thrash",
+    "nvme_bytes_per_token": 77309411328,
+    "expected_min_read_per_token": 25769797776
+  }
+}

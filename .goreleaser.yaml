@@ -1,0 +1,59 @@
+version: 2
+
+project_name: k3thrash
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: k3thrash
+    main: ./cmd/k3thrash
+    binary: k3thrash
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -ldflags=-s -w -X main.Version={{.Version}}
+    targets:
+      - linux_amd64
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+      # windows is intentionally omitted: v0.1 is Linux-only at the sampler
+      # layer (K3 NVMe rigs run Linux). darwin cross-compiles so the report
+      # command + tests run for mac dev hosts.
+
+archives:
+  - id: default
+    builds: [k3thrash]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format: tar.gz
+    files:
+      - README.md
+      - README.en.md
+      - LICENSE
+      - VERSION
+      - examples/trace.example.json
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
+  name_template: "{{ .ProjectName }} {{ .Version }}"
