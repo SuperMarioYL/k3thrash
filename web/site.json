@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "name": "k3thrash",
+  "github": "https://github.com/SuperMarioYL/k3thrash",
+  "host": "k3thrash.lei6393.com",
+  "lang": { "primary": "zh", "toggle": true },
+  "accent": ["#c2603f"],
+  "hero": {
+    "eyebrow": {
+      "zh": "本地 · 一行判定 · 单二进制",
+      "en": "Local · One-line verdict · One binary"
+    },
+    "headline": {
+      "zh": "一条命令看清\n你的 Kimi K3 解码变慢是预热还是病态换出",
+      "en": "One command reveals\nwhether your Kimi K3 decode slowdown is warmup or thrash"
+    },
+    "sub": {
+      "zh": "挂到正在跑的 Kimi K3 进程上，按 token 采样磁盘重读率，对照 K3 拓扑算出复用比，30 秒内给出健康 / 部分 / 病态的一行判定。",
+      "en": "Attaches to your running Kimi K3 process, samples the per-token disk re-read rate, and prints a one-line verdict — healthy / partial / pathological — in about 30 seconds."
+    },
+    "command": "k3thrash attach --pid <pid> --expert-topo kimi-k3",
+    "cta": { "zh": "开始诊断", "en": "Start diagnosing" },
+    "ctaGithub": { "zh": "在 GitHub 查看", "en": "View on GitHub" }
+  },
+  "advantages": [
+    {
+      "title": { "zh": "一行判定，实时流式", "en": "A one-line verdict, streamed live" },
+      "body": {
+        "zh": "挂上去就开始按 token 给出磁盘重读率与滚动判定：健康预热、部分转暖、病态换出。不用等整轮跑完，也不用事后翻日志。",
+        "en": "The moment you attach, it streams a per-token disk re-read rate and a rolling verdict — healthy warmup, partial warm, pathological thrash. No waiting for the run to finish, no digging through logs afterward."
+      },
+      "chips": [
+        "› 30 秒出判定",
+        "› 健康 / 部分 / 病态三档"
+      ]
+    },
+    {
+      "title": {
+        "zh": "一份能直接贴进帖子与 issue 的报告",
+        "en": "A report you can paste straight into a thread or issue"
+      },
+      "body": {
+        "zh": "k3thrash report 把 trace 渲染成一段 ASCII：判定、重读率 sparkline、一行总结。贴到论坛、issue、聊天群，别人一眼看清你的 K3 在经历什么。",
+        "en": "k3thrash report renders the trace into an ASCII block — verdict, re-read-rate sparkline, a one-line summary. Paste it into a forum, an issue, a chat group, and anyone can see at a glance what your K3 is going through."
+      },
+      "chips": [
+        "› ASCII + sparkline",
+        "› 跨平台 report"
+      ]
+    },
+    {
+      "title": {
+        "zh": "挂到正在跑的进程，不重编译不重载",
+        "en": "Attaches to a running process, no recompile, no reload"
+      },
+      "body": {
+        "zh": "不用重编译 llama.cpp，也不用重载模型。找到你 K3 进程的 pid，k3thrash attach 上去就开始采——你正在跑的解码一行都不会被打断。",
+        "en": "No recompiling llama.cpp, no reloading the model. Find your K3 process pid, run k3thrash attach, and it starts sampling — the decode you're already running is never interrupted."
+      },
+      "chips": [
+        "› 无需重编译",
+        "› 不打断解码"
+      ]
+    },
+    {
+      "title": {
+        "zh": "本地运行，单二进制，MIT 开源",
+        "en": "Local, one binary, MIT open source"
+      },
+      "body": {
+        "zh": "一行 go install 拿到的静态二进制——没有常驻服务、没有云、不需要账号。个人自部署永久免费；多节点实验室的跨机对比是后续的事。",
+        "en": "A single static binary from one go install — no daemon, no cloud, no account. Free forever for individual self-hosters; cross-node comparison for multi-rig labs is a later chapter."
+      },
+      "chips": [
+        "› go install 一行装好",
+        "› 个人永久免费"
+      ]
+    }
+  ],
+  "scene": { "kind": "particle-field" },
+  "cta": {
+    "headline": {
+      "zh": "把模糊的「是不是在变慢」，收敛成一行可粘贴的判定",
+      "en": "Turn a vague \u201cis it slowing down?\u201d into a one-line, pasteable verdict"
+    },
+    "sub": {
+      "zh": "开源、MIT、个人永久免费。诊断这一核心动作，永不设墙。",
+      "en": "Open source, MIT, free forever for individuals. The core act of diagnosing is never gated."
+    },
+    "button": { "zh": "在 GitHub 上开始", "en": "Get started on GitHub" }
+  },
+  "footer": {
+    "tag": {
+      "zh": "Kimi K3 解码抖动的一行判定 CLI",
+      "en": "The one-line Kimi K3 decode-thrash verdict CLI"
+    }
+  }
+}
