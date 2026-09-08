@@ -1,65 +1,73 @@
-<div align="right"><sub><b>English</b> &nbsp;·&nbsp; [<a href="./README.md">简体中文</a>]</sub></div>
+[简体中文](./README.md) · [Website](https://k3thrash.lei6393.com) · [GitHub](https://github.com/SuperMarioYL/k3thrash)
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./assets/hero-light.svg">
-    <img src="./assets/hero-light.svg" width="880" alt="k3thrash — Kimi K3 MoE expert-thrash NVMe diagnostic CLI">
-  </picture>
-</p>
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/hero-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/hero-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/hero-dark.svg">
+  <img src="./assets/presentation/hero-light.svg" width="960" alt="Hero diagram">
+</picture>
 
-<p align="center"><sub>Attach to a running llama.cpp K3 process and get a per-token NVMe re-read/reuse ratio + a one-line thrash verdict.</sub></p>
+# k3thrash
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license MIT"></a>
-  <a href="https://github.com/SuperMarioYL/k3thrash/releases"><img src="https://img.shields.io/github/v/release/SuperMarioYL/k3thrash?label=release" alt="latest release"></a>
-  <img src="https://img.shields.io/github/actions/workflow/status/SuperMarioYL/k3thrash/ci.yml?branch=main&label=CI" alt="CI">
-  <img src="https://img.shields.io/badge/Go-1.24-0071E3?logo=go&logoColor=white" alt="Go 1.24">
-  <img src="https://img.shields.io/badge/kimi--k3-896e%2F16a-5E5CE6" alt="kimi-k3">
-  <img src="https://img.shields.io/badge/MoE-thrash%20diagnostic-10A37F" alt="MoE thrash diagnostic">
-</p>
+**Make a saved I/O trace easier to interpret.**
 
-**Kimi K3 decode tps drifts upward over time — is it healthy cache warmup, or pathological expert re-reads thrashing the NVMe bus? k3thrash attaches and tells you in one line.**
+k3thrash collects Linux process read counters, correlates available token counts and reports a topology-relative read-rate classification. Saved trace reports also run on macOS.
 
-<h2><img src="https://api.iconify.design/tabler:topology-star-3.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Architecture</h2>
+## Why use it
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/atlas-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./assets/atlas-light.svg">
-    <img src="./assets/atlas-light.svg" width="880" alt="architecture: llama.cpp K3 pid → procio+tokensource → thrash verdict → trace.json + report">
-  </picture>
-</p>
+Throughput alone does not show how much storage traffic accompanies each token. Keeping cumulative bytes and token samples in one trace gives you an inspectable ratio and a report you can share.
 
-Two processes: your running `llama.cpp` Kimi K3 pid plus the `k3thrash` CLI. No llama.cpp recompile, no model reload. `procio` samples `/proc/<pid>/io.read_bytes` at 10 Hz; `tokensource` tails llama.cpp stderr per-token timing; the `thrash` engine computes the per-token NVMe re-read rate against the kimi-k3 topology (896 experts / 16 active / ~1.6 GiB packed expert); `render` emits the shareable ASCII report + sparkline.
+- **Keep the samples** — Trace JSON retains counters alongside the topology.
+- **Explain the ratio** — The baseline and bytes-per-token appear in the report.
+- **Report offline** — Saved traces can be inspected off the Linux rig.
 
-<h2><img src="https://api.iconify.design/tabler:bulb.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Why this exists</h2>
+## Architecture
 
-Kimi K3 (Moonshot AI's open-weights 1.56 TB sparse-MoE, 896 experts / 16 active) only runs on a home NVMe rig by streaming experts off the drive on demand — 93% of the checkpoint is routed experts that never become resident. That produces a counterintuitive failure mode: decoding tokens-per-second *drifts upward over time* like a "warmup," but you can't tell whether you're watching healthy cache warming, host page-cache effects, or pathological expert re-reads hammering the NVMe bus. `llama-bench` crashes on K3 outright, and even when it runs it only gives aggregate tps — it structurally cannot decompose the drift into per-token expert-residency attribution. k3thrash makes that verdict a pasteable one-liner.
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/architecture-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/architecture-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/architecture-dark.svg">
+  <img src="./assets/presentation/architecture-light.svg" width="960" alt="Architecture diagram">
+</picture>
 
-| Axis | `llama-bench` | `xpref` | **k3thrash** |
-|---|---|---|---|
-| Per-token NVMe re-read rate | — | — | ✓ |
-| Thrash verdict (healthy/partial/pathological) | — | — | ✓ |
-| Shareable ASCII report + sparkline | — | partial | ✓ |
-| Does not crash on K3 | ✗ | ✓ | ✓ |
-| Tells you *whether* to adopt xpref | — | — | ✓ |
-| Improves throughput (prefetch) | — | ✓ | ✗ (v0.1 only diagnoses) |
+procio samples /proc/PID/io; tokensource tails supported llama.cpp timing lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.
 
-Honesty note: v0.1 granularity is **aggregate NVMe read-rate** (per-token, summed across all experts, no expert identity). Per-expert identity (which of 896 fired) via eBPF/uprobe is the v0.2 north star, deliberately out of scope here.
+| Component | Responsibility |
+| --- | --- |
+| `Process counters` | internal/procio |
+| `Token timing` | internal/tokensource |
+| `Trace deltas` | internal/trace |
+| `Baseline verdict` | internal/thrash; internal/topo |
+| `ASCII report` | internal/render |
 
-<h2><img src="https://api.iconify.design/tabler:rocket.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Quickstart</h2>
+## Install and quickstart
+
+Use the runtime version declared in the repository manifest. The source installation below makes the included example reproducible.
 
 ```bash
-go install github.com/SuperMarioYL/k3thrash@latest          # 1. install
-k3thrash report examples/trace.example.json                 # 2. see the one-line verdict (cross-platform)
-# on a Linux K3 rig: k3thrash attach --pid $(pgrep -f llama)  # 3. attach to a real K3 pid, verdict in ~30s
+git clone https://github.com/SuperMarioYL/k3thrash.git
+cd k3thrash
+go build ./cmd/k3thrash
 ```
 
-<details>
-<summary>sample output (<code>k3thrash report examples/trace.example.json</code>)</summary>
+Go 1.24+ and Python 3; render the included six-sample trace without a running model.
 
+```bash
+python3 examples/presentation_demo.py
 ```
+
+## Recorded demo
+
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/process-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/process-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/process-dark.svg">
+  <img src="./assets/presentation/process-light.svg" width="960" alt="Process diagram">
+</picture>
+
+The synthetic trace is classified as pathological thrash at 3.0x its configured baseline.
+
+```text
 === k3thrash report ===
 model: kimi-k3   pid: 4242   topo: kimi-k3 (896 experts / 16 active)
 window: 13:45:00 → 13:45:25   samples: 6
@@ -76,77 +84,52 @@ re-read-rate sparkline (bytes/token, min-max normalized):
 share: paste the block above into your thread / issue.
 === end k3thrash report ===
 ```
-</details>
 
-<h2><img src="https://api.iconify.design/tabler:terminal-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Usage</h2>
+The complete command and output are recorded in [docs/demo-results.json](./docs/demo-results.json). Inputs and reproduction code are included in the repository.
 
-**attach — attach to a running llama.cpp K3 pid, stream the verdict + write trace.json (Linux only)**
+![Existing fixture report recording](./assets/demo/k3thrash-demo.gif)
 
-```bash
-# route llama.cpp stderr into a fifo so k3thrash can read token counts too
-mkfifo /tmp/k3.fifo
-llama-cli -m kimi-k3.gguf ... 2> /tmp/k3.fifo &
+## Usage
 
-k3thrash attach --pid $(pgrep -f llama) --expert-topo kimi-k3 \
-  --token-source /tmp/k3.fifo --out trace.json
-# Ctrl-C to stop → writes trace.json + a one-line final verdict
-```
-
-**report — render the shareable ASCII report from trace.json (cross-platform, runs on macOS too)**
+Run these commands from the repository root after installation. Replace paths for your own data.
 
 ```bash
-k3thrash report trace.json            # print verdict + sparkline
-k3thrash report trace.json > share.txt  # redirect to a file for the forum
+go run ./cmd/k3thrash report examples/trace.example.json
+# Linux only; replace the PID and timing file for your process:
+go run ./cmd/k3thrash attach --pid 1234 --expert-topo kimi-k3 --token-source decode.log --interval-ms 100 --out trace.json
+go run ./cmd/k3thrash report trace.json
 ```
 
-**version**
+## Configuration
 
-```bash
-k3thrash --version                    # k3thrash v0.1.0
-```
+attach uses --pid, --token-source (file/FIFO or - for stdin), --out, --interval-ms and --no-verdict. Use a positive interval; the default is 100ms. The built-in registry supports kimi-k3 and its aliases. Ratio <1 is healthy_warmup, 1 to <2 is partial_warm, and >=2 is pathological_thrash; these are diagnostic buckets, not independently calibrated expert-residency measurements.
 
-<h2><img src="https://api.iconify.design/tabler:photo.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Demo</h2>
+## Integrations and responsibilities
 
-<p align="center"><img src="./assets/demo/k3thrash-demo.gif" width="880" alt="k3thrash demo: report renders verdict + sparkline"></p>
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/integrations-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/integrations-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/integrations-dark.svg">
+  <img src="./assets/presentation/integrations-light.svg" width="960" alt="Integrations diagram">
+</picture>
 
-The demo gif is rendered from [`docs/demo.tape`](./docs/demo.tape) (a vhs script) by `.github/workflows/demo.yml` — trigger it manually to refresh. The committed gif is the source of truth.
+Choose the input and output route that matches your workflow. The local example below exercises the stated subset.
 
-<h2><img src="https://api.iconify.design/tabler:adjustments.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Configuration</h2>
+| Route | Implemented role |
+| --- | --- |
+| Linux /proc | Process read_bytes counter |
+| Timing file / stdin | Supported token count lines |
+| Trace JSON | Samples and topology fields |
+| Terminal report | Verdict and sparkline |
 
-Key `k3thrash attach` flags:
+## Limits and next steps
 
-| flag | type | default | meaning |
-|---|---|---|---|
-| `--pid` / `-p` | int | (required) | llama.cpp K3 process id to attach to |
-| `--expert-topo` | string | `kimi-k3` | MoE expert topology (v0.1: `kimi-k3` only) |
-| `--token-source` | string | `""` | path to llama.cpp stderr token-timing stream (fifo/file), `-` for stdin; empty = use read-rate + topo baseline only |
-| `--out` / `-o` | string | `trace.json` | trace JSON output path |
-| `--interval-ms` | int | `100` | sample interval ms (default 100 = 10 Hz) |
-| `--no-verdict` | bool | `false` | stream raw read_bytes/s only, skip the verdict line |
+- The demo input is synthetic and its model/hardware labels are fixture metadata. No throughput or hardware result is measured here.
+- Aggregate process read_bytes does not identify an NVMe device, a specific expert or causal cache misses. Classification depends on the built-in topology constants.
+- Live attach requires Linux /proc access. Without advancing token counters a per-token ratio is not a reliable measurement; this tool diagnoses rather than prefetches weights.
 
-Verdict thresholds (`internal/thrash/verdict.go`): re-read rate `< 1.0×` → `healthy_warmup`; `1.0–2.0×` → `partial_warm`; `≥ 2.0×` → `pathological_thrash`.
+Per-expert instrumentation, additional topology definitions and cross-node comparisons remain future work.
 
-<h2><img src="https://api.iconify.design/tabler:currency-yuan.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Pricing</h2>
+## License and contributions
 
-**Free forever for individual self-hosters** (this repo is MIT). Multi-node K3 / multi-MoE-rig tuning labs need cross-node comparison, historical traces, and threshold alerting — that's the post-MVP hosted fleet-dashboard tier (explicitly out of scope per `mvp_plan §6`, not in this repo).
-
-- First paying customer: labs with ≥2-node NVMe rigs tuning CN MoE, university AI-infra groups, startups running K3 + DeepSeek-V3.x.
-- Price (estimate): ¥299/rig/month (~$40/rig/mo), per-rig not per-seat.
-- Minimum "card-swipe" demo path: invite-only PoC — the lab uploads 3 multi-node K3 run `trace.json` files, sees cross-node re-read-rate comparison + alert-threshold config page; the moment their own pathological node is flagged red = the payment trigger.
-- Want the fleet tier? Drop your node count + scenario in [Discussions](https://github.com/SuperMarioYL/k3thrash/discussions) and you're first in line when the PoC opens.
-
-<h2><img src="https://api.iconify.design/tabler:map-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Roadmap</h2>
-
-- [x] **m1** sample `/proc/<pid>/io` @10Hz, stream `read_bytes/s` + write `trace.json`
-- [x] **m2** correlate decode token rate, compute reuse-ratio vs kimi-k3 topo, emit one-line verdict
-- [x] **m3** `k3thrash report` renders ASCII report + sparkline; README + demo gif + release CI
-- [ ] **v0.2** per-expert identity signal via eBPF/uprobe (which of 896 fired per token) — north star
-- [ ] Pluggable topologies: DeepSeek-V3.x / Qwen3-MoE and other NVMe-demand sparse-MoE
-- [ ] Hosted fleet-dashboard tier (multi-node comparison + historical traces + threshold alerting, post-MVP commercial tier)
-- [ ] Real-time alerting / notifications
-
-<h2><img src="https://api.iconify.design/tabler:license.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> License & Contributing</h2>
-
-MIT, see [LICENSE](./LICENSE). File bugs / feature requests in [Issues](https://github.com/SuperMarioYL/k3thrash/issues); PRs welcome — fork → branch → PR. CN users can use the [Gitee mirror](https://gitee.com/SuperMarioYL/k3thrash) (synced by the maintainer after push).
-
-<p align="center"><sub><a href="./LICENSE">MIT</a> © 2026 SuperMarioYL</sub></p>
+See [LICENSE](./LICENSE). When reporting an issue, include a minimal input, the command, and the observed output.

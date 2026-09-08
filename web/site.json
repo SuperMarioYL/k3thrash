@@ -1,98 +1,215 @@
 {
-  "schema": 1,
+  "schema": 3,
   "name": "k3thrash",
   "github": "https://github.com/SuperMarioYL/k3thrash",
   "host": "k3thrash.lei6393.com",
-  "lang": { "primary": "zh", "toggle": true },
-  "accent": ["#c2603f"],
+  "palette": "auto",
+  "lang": {
+    "primary": "en",
+    "toggle": true
+  },
+  "meta": {
+    "visual_style": "neon-particle",
+    "demo_source": "docs/demo-results.json"
+  },
   "hero": {
-    "eyebrow": {
-      "zh": "本地 · 一行判定 · 单二进制",
-      "en": "Local · One-line verdict · One binary"
-    },
     "headline": {
-      "zh": "一条命令看清\n你的 Kimi K3 解码变慢是预热还是病态换出",
-      "en": "One command reveals\nwhether your Kimi K3 decode slowdown is warmup or thrash"
+      "en": "Make a saved I/O trace easier to interpret.",
+      "zh": "让保存的 I/O 轨迹更容易解读。"
     },
     "sub": {
-      "zh": "挂到正在跑的 Kimi K3 进程上，按 token 采样磁盘重读率，对照 K3 拓扑算出复用比，30 秒内给出健康 / 部分 / 病态的一行判定。",
-      "en": "Attaches to your running Kimi K3 process, samples the per-token disk re-read rate, and prints a one-line verdict — healthy / partial / pathological — in about 30 seconds."
+      "en": "k3thrash collects Linux process read counters, correlates available token counts and reports a topology-relative read-rate classification. Saved trace reports also run on macOS.",
+      "zh": "k3thrash 采集 Linux 进程读取计数，结合可用 token 计数，输出相对拓扑基线的读取分类；保存的轨迹报告也可在 macOS 生成。"
     },
-    "command": "k3thrash attach --pid <pid> --expert-topo kimi-k3",
-    "cta": { "zh": "开始诊断", "en": "Start diagnosing" },
-    "ctaGithub": { "zh": "在 GitHub 查看", "en": "View on GitHub" }
+    "href": "#quickstart"
   },
   "advantages": [
     {
-      "title": { "zh": "一行判定，实时流式", "en": "A one-line verdict, streamed live" },
-      "body": {
-        "zh": "挂上去就开始按 token 给出磁盘重读率与滚动判定：健康预热、部分转暖、病态换出。不用等整轮跑完，也不用事后翻日志。",
-        "en": "The moment you attach, it streams a per-token disk re-read rate and a rolling verdict — healthy warmup, partial warm, pathological thrash. No waiting for the run to finish, no digging through logs afterward."
+      "title": {
+        "en": "Keep the samples",
+        "zh": "保留采样"
       },
-      "chips": [
-        "› 30 秒出判定",
-        "› 健康 / 部分 / 病态三档"
-      ]
+      "body": {
+        "en": "Trace JSON retains counters alongside the topology.",
+        "zh": "轨迹 JSON 同时保存计数器与拓扑。"
+      }
     },
     {
       "title": {
-        "zh": "一份能直接贴进帖子与 issue 的报告",
-        "en": "A report you can paste straight into a thread or issue"
+        "en": "Explain the ratio",
+        "zh": "解释比值"
       },
       "body": {
-        "zh": "k3thrash report 把 trace 渲染成一段 ASCII：判定、重读率 sparkline、一行总结。贴到论坛、issue、聊天群，别人一眼看清你的 K3 在经历什么。",
-        "en": "k3thrash report renders the trace into an ASCII block — verdict, re-read-rate sparkline, a one-line summary. Paste it into a forum, an issue, a chat group, and anyone can see at a glance what your K3 is going through."
-      },
-      "chips": [
-        "› ASCII + sparkline",
-        "› 跨平台 report"
-      ]
+        "en": "The baseline and bytes-per-token appear in the report.",
+        "zh": "报告展示基线与每 token 字节数。"
+      }
     },
     {
       "title": {
-        "zh": "挂到正在跑的进程，不重编译不重载",
-        "en": "Attaches to a running process, no recompile, no reload"
+        "en": "Report offline",
+        "zh": "离线生成报告"
       },
       "body": {
-        "zh": "不用重编译 llama.cpp，也不用重载模型。找到你 K3 进程的 pid，k3thrash attach 上去就开始采——你正在跑的解码一行都不会被打断。",
-        "en": "No recompiling llama.cpp, no reloading the model. Find your K3 process pid, run k3thrash attach, and it starts sampling — the decode you're already running is never interrupted."
-      },
-      "chips": [
-        "› 无需重编译",
-        "› 不打断解码"
-      ]
-    },
-    {
-      "title": {
-        "zh": "本地运行，单二进制，MIT 开源",
-        "en": "Local, one binary, MIT open source"
-      },
-      "body": {
-        "zh": "一行 go install 拿到的静态二进制——没有常驻服务、没有云、不需要账号。个人自部署永久免费；多节点实验室的跨机对比是后续的事。",
-        "en": "A single static binary from one go install — no daemon, no cloud, no account. Free forever for individual self-hosters; cross-node comparison for multi-rig labs is a later chapter."
-      },
-      "chips": [
-        "› go install 一行装好",
-        "› 个人永久免费"
-      ]
+        "en": "Saved traces can be inspected off the Linux rig.",
+        "zh": "离开 Linux 节点也能检查保存轨迹。"
+      }
     }
   ],
-  "scene": { "kind": "particle-field" },
-  "cta": {
-    "headline": {
-      "zh": "把模糊的「是不是在变慢」，收敛成一行可粘贴的判定",
-      "en": "Turn a vague \u201cis it slowing down?\u201d into a one-line, pasteable verdict"
+  "demo": {
+    "title": {
+      "en": "Run it on a complete example",
+      "zh": "运行完整示例"
     },
-    "sub": {
-      "zh": "开源、MIT、个人永久免费。诊断这一核心动作，永不设墙。",
-      "en": "Open source, MIT, free forever for individuals. The core act of diagnosing is never gated."
+    "note": {
+      "en": "Go 1.24+ and Python 3; render the included six-sample trace without a running model.",
+      "zh": "需要 Go 1.24+ 与 Python 3；无需运行模型即可渲染随仓六点轨迹。"
     },
-    "button": { "zh": "在 GitHub 上开始", "en": "Get started on GitHub" }
+    "source": "https://github.com/SuperMarioYL/k3thrash/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": "Recorded run",
+        "body": "Cross-platform report from the bundled synthetic trace. No Kimi model, NVMe device or Linux process is sampled.",
+        "command": "python3 examples/presentation_demo.py",
+        "output": "=== k3thrash report ===\nmodel: kimi-k3   pid: 4242   topo: kimi-k3 (896 experts / 16 active)\nwindow: 13:45:00 → 13:45:25   samples: 6\n\nverdict:\n  re-read rate 3.0× reuse: pathological thrash\n  re-read rate 3.00× reuse | reuse ratio 0.33 | classification: pathological thrash\nnvme read 77309411328.00 B/token (pathological baseline 25769797776.00 B/token)\n\nre-read-rate sparkline (bytes/token, min-max normalized):\n  ▅▅▅▅▅\n  min 77309411328 | max 77309411328 B/token across 5 samples\n\nshare: paste the block above into your thread / issue.\n=== end k3thrash report ===",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      }
+    ]
   },
-  "footer": {
-    "tag": {
-      "zh": "Kimi K3 解码抖动的一行判定 CLI",
-      "en": "The one-line Kimi K3 decode-thrash verdict CLI"
+  "quickstart": {
+    "title": {
+      "en": "Try it locally",
+      "zh": "本地上手"
+    },
+    "body": {
+      "en": "Go 1.24+ and Python 3; render the included six-sample trace without a running model.",
+      "zh": "需要 Go 1.24+ 与 Python 3；无需运行模型即可渲染随仓六点轨迹。"
+    },
+    "steps": [
+      {
+        "title": {
+          "en": "Install from source",
+          "zh": "从源码安装"
+        },
+        "code": "git clone https://github.com/SuperMarioYL/k3thrash.git\ncd k3thrash\ngo build ./cmd/k3thrash"
+      },
+      {
+        "title": {
+          "en": "Run the included example",
+          "zh": "运行随仓示例"
+        },
+        "code": "python3 examples/presentation_demo.py"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "en": "The demo input is synthetic and its model/hardware labels are fixture metadata. No throughput or hardware result is measured here.",
+      "zh": "示例输入是合成轨迹，模型和硬件标签属于 fixture 元数据；此处没有吞吐或硬件实测。"
+    },
+    {
+      "en": "Aggregate process read_bytes does not identify an NVMe device, a specific expert or causal cache misses. Classification depends on the built-in topology constants.",
+      "zh": "进程聚合 read_bytes 无法识别具体 NVMe 设备、专家或缓存未命中的因果；分类依赖内置拓扑常数。"
+    },
+    {
+      "en": "Live attach requires Linux /proc access. Without advancing token counters a per-token ratio is not a reliable measurement; this tool diagnoses rather than prefetches weights.",
+      "zh": "实时 attach 需要 Linux /proc 访问权限。没有递增 token 计数时，每 token 比值不能视作可靠实测；工具用于诊断，不会预取权重。"
     }
+  ],
+  "scene": {
+    "kind": "neon-graph",
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
+  },
+  "story": {
+    "intro": {
+      "title": {
+        "en": "A concrete task",
+        "zh": "从实际任务出发"
+      },
+      "body": {
+        "en": "Throughput alone does not show how much storage traffic accompanies each token. Keeping cumulative bytes and token samples in one trace gives you an inspectable ratio and a report you can share.",
+        "zh": "仅看吞吐无法知道每个 token 伴随多少存储流量。把累计字节与 token 采样保存在同一轨迹，可得到可检查的比值与可分享的报告。"
+      }
+    },
+    "sections": [
+      {
+        "title": {
+          "en": "Follow the operation",
+          "zh": "处理过程"
+        },
+        "body": {
+          "en": "procio samples /proc/PID/io; tokensource tails supported llama.cpp timing lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
+          "zh": "procio 采样 /proc/PID/io，tokensource 读取支持的 llama.cpp 时序行；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "en": "Follow the operation",
+            "zh": "处理过程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Inside k3thrash",
+          "zh": "k3thrash 的内部流程"
+        },
+        "body": {
+          "en": "procio samples /proc/PID/io; tokensource tails supported llama.cpp timing lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
+          "zh": "procio 采样 /proc/PID/io，tokensource 读取支持的 llama.cpp 时序行；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "en": "Inside k3thrash",
+            "zh": "k3thrash 的内部流程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Connect the pieces",
+          "zh": "输入与输出"
+        },
+        "body": {
+          "en": "Choose the input and output route that matches your workflow. The local example below exercises the stated subset.",
+          "zh": "根据工作流选择输入与输出路径。本文本地示例验证其中明确说明的子流程。"
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "en": "Connect the pieces",
+            "zh": "输入与输出"
+          }
+        }
+      }
+    ],
+    "details": [
+      {
+        "title": {
+          "en": "Configuration",
+          "zh": "配置"
+        },
+        "body": {
+          "en": "attach uses --pid, --token-source (file/FIFO or - for stdin), --out, --interval-ms and --no-verdict. Use a positive interval; the default is 100ms. The built-in registry supports kimi-k3 and its aliases. Ratio <1 is healthy_warmup, 1 to <2 is partial_warm, and >=2 is pathological_thrash; these are diagnostic buckets, not independently calibrated expert-residency measurements.",
+          "zh": "attach 提供 --pid、--token-source（文件/FIFO 或 - 标准输入）、--out、--interval-ms 与 --no-verdict。采样间隔应为正数，默认 100ms。内置注册表支持 kimi-k3 及其别名。比值 <1 为 healthy_warmup，1 到 <2 为 partial_warm，>=2 为 pathological_thrash；这些是诊断分类，不是独立标定的专家驻留测量。"
+        }
+      },
+      {
+        "title": {
+          "en": "Further use",
+          "zh": "进一步使用"
+        },
+        "body": {
+          "en": "Run these commands from the repository root after installation. Replace paths for your own data.",
+          "zh": "安装后在仓库根目录运行以下命令；处理自己的数据时替换相应路径。"
+        },
+        "code": "go run ./cmd/k3thrash report examples/trace.example.json\n# Linux only; replace the PID and timing file for your process:\ngo run ./cmd/k3thrash attach --pid 1234 --expert-topo kimi-k3 --token-source decode.log --interval-ms 100 --out trace.json\ngo run ./cmd/k3thrash report trace.json"
+      }
+    ]
   }
 }

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "source_revision": "128271b8b03d98f721051f4d4e6df901985db2b5",
+  "scope": "Cross-platform report from the bundled synthetic trace. No Kimi model, NVMe device or Linux process is sampled.",
+  "steps": [
+    {
+      "label": "Recorded run",
+      "body": "Cross-platform report from the bundled synthetic trace. No Kimi model, NVMe device or Linux process is sampled.",
+      "command": "python3 examples/presentation_demo.py",
+      "output": "=== k3thrash report ===\nmodel: kimi-k3   pid: 4242   topo: kimi-k3 (896 experts / 16 active)\nwindow: 13:45:00 → 13:45:25   samples: 6\n\nverdict:\n  re-read rate 3.0× reuse: pathological thrash\n  re-read rate 3.00× reuse | reuse ratio 0.33 | classification: pathological thrash\nnvme read 77309411328.00 B/token (pathological baseline 25769797776.00 B/token)\n\nre-read-rate sparkline (bytes/token, min-max normalized):\n  ▅▅▅▅▅\n  min 77309411328 | max 77309411328 B/token across 5 samples\n\nshare: paste the block above into your thread / issue.\n=== end k3thrash report ==="
+    }
+  ]
+}

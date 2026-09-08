@@ -1,0 +1,38 @@
+{
+  "mode": "auto",
+  "id": "c956e6-e76abd-ccacf6-a88aac745269",
+  "identity": "https://github.com/supermarioyl/k3thrash",
+  "primary": "#c956e6",
+  "secondary": "#e76abd",
+  "highlight": "#ccacf6",
+  "dark": {
+    "bg": "#090712",
+    "panel": "#12101f",
+    "code": "#120d1d",
+    "ink": "#f5eefd",
+    "muted": "#ac9cc4",
+    "line": "#331841",
+    "primary": "#c956e6",
+    "secondary": "#e76abd",
+    "highlight": "#ccacf6",
+    "accent": "#c956e6",
+    "buttonStart": "#af4bc8",
+    "buttonEnd": "#b65395",
+    "buttonText": "#ffffff"
+  },
+  "light": {
+    "bg": "#fdf9fe",
+    "panel": "#fcf7fe",
+    "code": "#fbf3fd",
+    "ink": "#231630",
+    "muted": "#6c5e88",
+    "line": "#eecbf7",
+    "primary": "#a747bf",
+    "secondary": "#ad4f8e",
+    "highlight": "#7c6895",
+    "accent": "#a747bf",
+    "buttonStart": "#af4bc8",
+    "buttonEnd": "#b65395",
+    "buttonText": "#ffffff"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "name": "k3thrash",
+  "tagline": "Make a saved I/O trace easier to interpret.",
+  "architecture": {
+    "title": "Inside k3thrash",
+    "nodes": [
+      {
+        "title": "Process counters",
+        "detail": "internal/procio"
+      },
+      {
+        "title": "Token timing",
+        "detail": "internal/tokensource"
+      },
+      {
+        "title": "Trace deltas",
+        "detail": "internal/trace"
+      },
+      {
+        "title": "Baseline verdict",
+        "detail": "internal/thrash; internal/topo"
+      },
+      {
+        "title": "ASCII report",
+        "detail": "internal/render"
+      }
+    ],
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        3,
+        4
+      ]
+    ]
+  },
+  "process": {
+    "title": "From input to a useful result",
+    "steps": [
+      {
+        "title": "Read trace",
+        "detail": "Six synthetic samples"
+      },
+      {
+        "title": "Compute ratios",
+        "detail": "Bytes / token / baseline"
+      },
+      {
+        "title": "Render diagnosis",
+        "detail": "3.0x fixture classification"
+      }
+    ],
+    "result": "The synthetic trace is classified as pathological thrash at 3.0x its configured baseline."
+  },
+  "integrations": {
+    "title": "Supported input and output routes",
+    "items": [
+      {
+        "title": "Linux /proc",
+        "detail": "Process read_bytes counter"
+      },
+      {
+        "title": "Timing file / stdin",
+        "detail": "Supported token count lines"
+      },
+      {
+        "title": "Trace JSON",
+        "detail": "Samples and topology fields"
+      },
+      {
+        "title": "Terminal report",
+        "detail": "Verdict and sparkline"
+      }
+    ]
+  }
+}
