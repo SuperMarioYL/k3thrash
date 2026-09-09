@@ -49,9 +49,13 @@ func New(model string, pid int, t topo.Topo) *Trace {
 func (tr *Trace) Append(s Sample) float64 {
 	if len(tr.Samples) > 0 {
 		prev := tr.Samples[len(tr.Samples)-1]
-		dt := s.TokensSoFar - prev.TokensSoFar
-		if dt > 0 && s.ReadBytes >= prev.ReadBytes {
-			s.BytesPerToken = float64(s.ReadBytes-prev.ReadBytes) / float64(dt)
+		// Compare before subtracting: llama.cpp restarts per-prompt token
+		// counting, so TokensSoFar can go backwards mid-session; a raw uint64
+		// subtraction would underflow and yield a phantom near-zero rate that
+		// biases the verdict toward healthy_warmup.
+		if s.TokensSoFar > prev.TokensSoFar && s.ReadBytes >= prev.ReadBytes {
+			s.BytesPerToken = float64(s.ReadBytes-prev.ReadBytes) /
+				float64(s.TokensSoFar-prev.TokensSoFar)
 		}
 	}
 	tr.Samples = append(tr.Samples, s)

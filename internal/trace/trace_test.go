@@ -162,3 +162,25 @@ func TestWriteFileZeroRateVerdict(t *testing.T) {
 		t.Errorf("round-tripped reuse_ratio = %v, want finite", loaded.FinalVerdict.ReuseRatio)
 	}
 }
+
+func TestAppendTokenCounterReset(t *testing.T) {
+	// llama.cpp restarts per-prompt token counting, so the cumulative count
+	// can go backwards mid-session. The delta must be skipped (rate 0), not
+	// underflowed into a huge uint64 that yields a phantom near-zero rate and
+	// biases the final verdict toward healthy_warmup.
+	tr := New("kimi-k3", 1, topo.KimiK3())
+	now := time.Now().UTC()
+	tr.Append(Sample{T: now, ReadBytes: 1_000, TokensSoFar: 10})
+	rate := tr.Append(Sample{T: now.Add(100 * time.Millisecond), ReadBytes: 5_000, TokensSoFar: 2})
+	if rate != 0 {
+		t.Errorf("rate after token reset = %g, want 0", rate)
+	}
+	if got := tr.RateSeries(); len(got) != 0 {
+		t.Errorf("RateSeries after reset = %v, want empty", got)
+	}
+	// Counting resumes: the next forward delta must be computed normally.
+	rate = tr.Append(Sample{T: now.Add(200 * time.Millisecond), ReadBytes: 6_000, TokensSoFar: 4})
+	if rate != 500 { // 1000 bytes over 2 tokens
+		t.Errorf("rate after counting resumes = %g, want 500", rate)
+	}
+}
