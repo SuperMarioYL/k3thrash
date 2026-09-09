@@ -116,6 +116,11 @@ func TestRootVersion(t *testing.T) {
 	if !strings.Contains(out.String(), "k3thrash") {
 		t.Errorf("version output = %q, want k3thrash version", out.String())
 	}
+	// --version must print the Version var (the surface goreleaser overrides
+	// via ldflags), not a stale hardcoded string.
+	if !strings.Contains(out.String(), Version) {
+		t.Errorf("version output = %q, want it to contain %q", out.String(), Version)
+	}
 }
 
 func TestAttachRejectsBadTopo(t *testing.T) {

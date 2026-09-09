@@ -4,6 +4,34 @@ All notable changes to k3thrash are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] — 2026-09-09
+
+Bug-fix release from the post-ship grill: attach can no longer panic or
+lose a captured trace, and the verdict math is correct across token-counter
+resets.
+
+### m4 — attach robustness
+- `--interval-ms 0` no longer panics with an integer divide-by-zero in the
+  attach banner (Linux), and negative values no longer print nonsense Hz;
+  cadence and Hz are sanitized from one place.
+- When the sampled pid dies mid-attach (crash, OOM-kill), the captured
+  trace is finalized and written before the error is surfaced — v0.1.0
+  lost the whole session.
+- The default attach mode (no `--token-source`, the README quickstart
+  path) can now write `trace.json`: the degenerate verdict branches used
+  to put `+Inf` in `reuse_ratio`, which JSON cannot serialize. The
+  not-computable ratio now reports `0`, rendered "n/a" in the summary.
+
+### m5 — token-counter reset
+- llama.cpp restarts per-prompt token counting; a mid-session counter
+  reset no longer underflows the uint64 token delta into a phantom
+  near-zero rate that biased the final verdict toward healthy_warmup.
+
+### m6 — bounded shutdown
+- Ctrl-C now exits promptly when `--token-source` is a fifo held open by
+  llama.cpp (v0.1.0 hung until a second interrupt), and the token-source
+  file is closed instead of leaking for the session.
+
 ## [v0.1.0] — 2026-08-05
 
 First release: the per-token NVMe expert-residency / reuse-ratio thrash

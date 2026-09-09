@@ -15,7 +15,7 @@ import (
 
 // Version is the build version; overridden at release via ldflags. It is the
 // single source of truth displayed by `k3thrash --version`.
-var Version = "v0.1.0"
+var Version = "v0.2.0"
 
 func main() {
 	if err := newRoot().Execute(); err != nil {
