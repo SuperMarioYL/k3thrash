@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SuperMarioYL/k3thrash/internal/procio"
 	"github.com/SuperMarioYL/k3thrash/internal/topo"
 	"github.com/SuperMarioYL/k3thrash/internal/trace"
 )
@@ -147,3 +149,109 @@ func TestRootHasSubcommands(t *testing.T) {
 }
 
 var _ = os.Stdout // keep os imported if future tests need it
+
+// fakeSampler feeds a fixed sequence of IOSamples then a terminal error, so
+// the pid-death path (sampler failing mid-attach) is testable on any host.
+type fakeSampler struct {
+	samples []procio.IOSample
+	err     error
+	n       int
+}
+
+func (f *fakeSampler) Read() (procio.IOSample, error) {
+	if f.n < len(f.samples) {
+		s := f.samples[f.n]
+		f.n++
+		return s, nil
+	}
+	return procio.IOSample{}, f.err
+}
+
+func (*fakeSampler) Close() error { return nil }
+
+func TestSampleInterval(t *testing.T) {
+	cases := []struct {
+		ms      int
+		wantDur time.Duration
+		wantHz  int
+	}{
+		{0, 100 * time.Millisecond, 10}, // v0.1.0 divided by zero here
+		{-200, 100 * time.Millisecond, 10},
+		{50, 50 * time.Millisecond, 20},
+		{100, 100 * time.Millisecond, 10},
+		{250, 250 * time.Millisecond, 4},
+		{1000, time.Second, 1},
+	}
+	for _, c := range cases {
+		gotDur, gotHz := sampleInterval(c.ms)
+		if gotDur != c.wantDur || gotHz != c.wantHz {
+			t.Errorf("sampleInterval(%d) = (%v, %d Hz), want (%v, %d Hz)",
+				c.ms, gotDur, gotHz, c.wantDur, c.wantHz)
+		}
+	}
+}
+
+func TestSampleLoopPersistsTraceOnSamplerError(t *testing.T) {
+	// The K3 pid dying mid-attach (sampler read error) must still write the
+	// captured trace — v0.1.0 returned the error and lost the whole session.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "trace.json")
+	now := time.Now().UTC()
+	fs := &fakeSampler{
+		samples: []procio.IOSample{
+			{T: now, ReadBytes: 0},
+			{T: now.Add(10 * time.Millisecond), ReadBytes: 3_000_000_000},
+			{T: now.Add(20 * time.Millisecond), ReadBytes: 6_000_000_000},
+		},
+		err: errors.New("pid gone"),
+	}
+	tr := trace.New("kimi-k3", 123, topo.KimiK3())
+
+	err := sampleLoop(context.Background(), fs, nil, tr, out, 5*time.Millisecond, false)
+	if err == nil || !strings.Contains(err.Error(), "pid gone") {
+		t.Fatalf("err = %v, want the sampler error surfaced", err)
+	}
+
+	loaded, rerr := trace.ReadFile(out)
+	if rerr != nil {
+		t.Fatalf("trace was not persisted on pid death: %v", rerr)
+	}
+	if len(loaded.Samples) != 3 {
+		t.Errorf("persisted samples = %d, want 3", len(loaded.Samples))
+	}
+	if loaded.FinalVerdict == nil {
+		t.Error("persisted trace has no final verdict")
+	}
+}
+
+func TestSampleLoopPersistsTraceOnCancel(t *testing.T) {
+	// Ctrl-C (ctx cancel) must write the trace and return nil.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "trace.json")
+	now := time.Now().UTC()
+	samples := make([]procio.IOSample, 0, 100)
+	for i := 0; i < 100; i++ {
+		samples = append(samples, procio.IOSample{T: now.Add(time.Duration(i) * 5 * time.Millisecond), ReadBytes: uint64(i) * 1_000})
+	}
+	fs := &fakeSampler{samples: samples, err: errors.New("never reached")}
+	ctx, cancel := context.WithCancel(context.Background())
+	tr := trace.New("kimi-k3", 321, topo.KimiK3())
+
+	go func() {
+		time.Sleep(25 * time.Millisecond)
+		cancel()
+	}()
+	if err := sampleLoop(ctx, fs, nil, tr, out, 5*time.Millisecond, false); err != nil {
+		t.Fatalf("sampleLoop on cancel: %v", err)
+	}
+	loaded, rerr := trace.ReadFile(out)
+	if rerr != nil {
+		t.Fatalf("trace was not persisted on cancel: %v", rerr)
+	}
+	if len(loaded.Samples) < 2 {
+		t.Errorf("persisted samples = %d, want at least 2 captured before cancel", len(loaded.Samples))
+	}
+	if loaded.FinalVerdict == nil {
+		t.Error("persisted trace has no final verdict")
+	}
+}

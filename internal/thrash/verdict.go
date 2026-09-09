@@ -10,7 +10,6 @@ package thrash
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/SuperMarioYL/k3thrash/internal/topo"
 )
@@ -22,7 +21,9 @@ type Verdict struct {
 	// ReuseRatio = ExpectedMinReadPerToken / actualReadPerToken.
 	// >1 means the bus is reading less than the all-active-re-read baseline
 	// (experts are being reused); <1 means the bus is re-reading faster than
-	// reuse (thrash).
+	// reuse (thrash). 0 means the ratio is not computable (no measurable
+	// NVMe read, or a degenerate topology); RereadRateX stays the primary
+	// signal either way.
 	ReuseRatio float64 `json:"reuse_ratio"`
 	// RereadRateX = 1 / ReuseRatio — "re-read rate times reuse".
 	// <1 = healthy; ~1 = boundary; >2 = pathological.
@@ -59,13 +60,17 @@ func Judge(actualReadPerToken float64, t topo.Topo) Verdict {
 	switch {
 	case expectedMin <= 0:
 		// Degenerate topology: cannot compute a baseline. Treat as healthy
-		// (no baseline to exceed) with infinite reuse ratio.
-		v.ReuseRatio = math.Inf(1)
+		// (no baseline to exceed); the reuse ratio is not computable.
+		v.ReuseRatio = 0
 		v.RereadRateX = 0
 		v.Classification = HealthyWarmup
 	case actualReadPerToken <= 0:
-		// No NVMe reads at all — experts fully resident.
-		v.ReuseRatio = math.Inf(1)
+		// No NVMe reads at all — experts fully resident (or no token delta
+		// to measure, e.g. attach without --token-source). The ratio would be
+		// +Inf, which encoding/json refuses to serialize — v0.1.0 therefore
+		// failed to write trace.json in this mode. Report the
+		// not-computable sentinel 0 so the trace can always be written.
+		v.ReuseRatio = 0
 		v.RereadRateX = 0
 		v.Classification = HealthyWarmup
 	default:
@@ -113,9 +118,13 @@ func prettify(c string) string {
 
 // Summary renders the multi-line block used at the top of the ASCII report.
 func (v Verdict) Summary() string {
+	reuse := "n/a"
+	if v.ReuseRatio > 0 {
+		reuse = fmt.Sprintf("%.2f", v.ReuseRatio)
+	}
 	return fmt.Sprintf(
-		"re-read rate %.2f× reuse | reuse ratio %.2f | classification: %s\nnvme read %.2f B/token (pathological baseline %.2f B/token)",
-		v.RereadRateX, v.ReuseRatio, prettify(v.Classification),
+		"re-read rate %.2f× reuse | reuse ratio %s | classification: %s\nnvme read %.2f B/token (pathological baseline %.2f B/token)",
+		v.RereadRateX, reuse, prettify(v.Classification),
 		v.NvmeBytesPerToken, v.ExpectedMinReadPerToken,
 	)
 }

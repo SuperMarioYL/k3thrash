@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -130,5 +131,34 @@ func TestWriteFileAtomicTmp(t *testing.T) {
 	var raw map[string]any
 	if err := json.Unmarshal(b, &raw); err != nil {
 		t.Errorf("output not valid JSON: %v", err)
+	}
+}
+
+func TestWriteFileZeroRateVerdict(t *testing.T) {
+	// Default attach mode (--token-source empty): TokensSoFar never advances,
+	// so every BytesPerToken is 0 and Finalize judges a zero rate. The verdict
+	// must stay JSON-serializable — v0.1.0 put +Inf in reuse_ratio and the
+	// trace could never be written.
+	tr := New("kimi-k3", 1, topo.KimiK3())
+	now := time.Now().UTC()
+	tr.Append(Sample{T: now, ReadBytes: 0, TokensSoFar: 0})
+	tr.Append(Sample{T: now.Add(100 * time.Millisecond), ReadBytes: 5_000_000, TokensSoFar: 0})
+	v := tr.Finalize()
+	if v.Classification != "healthy_warmup" {
+		t.Errorf("zero-rate classification = %q, want healthy_warmup", v.Classification)
+	}
+	path := filepath.Join(t.TempDir(), "trace.json")
+	if err := tr.WriteFile(path); err != nil {
+		t.Fatalf("default no-token-source trace cannot be written: %v", err)
+	}
+	loaded, err := ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if loaded.FinalVerdict == nil {
+		t.Fatal("round-tripped trace lost the final verdict")
+	}
+	if math.IsInf(loaded.FinalVerdict.ReuseRatio, 0) || math.IsNaN(loaded.FinalVerdict.ReuseRatio) {
+		t.Errorf("round-tripped reuse_ratio = %v, want finite", loaded.FinalVerdict.ReuseRatio)
 	}
 }

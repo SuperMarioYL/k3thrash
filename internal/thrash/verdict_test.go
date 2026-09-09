@@ -1,7 +1,9 @@
 package thrash
 
 import (
+	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/SuperMarioYL/k3thrash/internal/topo"
@@ -80,5 +82,29 @@ func TestSummaryNonEmpty(t *testing.T) {
 	v := Judge(topo.ExpectedMinReadPerToken(tt)*2.5, tt)
 	if v.Summary() == "" {
 		t.Error("Summary() returned empty string")
+	}
+}
+
+func TestJudgeDegenerateJSONSafe(t *testing.T) {
+	// The degenerate branches (no measurable read / degenerate topo) must not
+	// put +Inf in ReuseRatio: encoding/json refuses to serialize it, which
+	// made v0.1.0 unable to write trace.json for the default attach mode.
+	tt := topo.KimiK3()
+	for _, v := range []Verdict{Judge(0, tt), Judge(12345.0, topo.Topo{})} {
+		if v.ReuseRatio != 0 {
+			t.Errorf("degenerate ReuseRatio = %v, want 0 (not-computable sentinel)", v.ReuseRatio)
+		}
+		if v.RereadRateX != 0 {
+			t.Errorf("degenerate RereadRateX = %v, want 0", v.RereadRateX)
+		}
+		if v.Classification != HealthyWarmup {
+			t.Errorf("degenerate classification = %q, want %q", v.Classification, HealthyWarmup)
+		}
+		if _, err := json.Marshal(v); err != nil {
+			t.Errorf("json.Marshal(verdict) failed: %v", err)
+		}
+		if !strings.Contains(v.Summary(), "n/a") {
+			t.Errorf("Summary for not-computable reuse should render n/a: %q", v.Summary())
+		}
 	}
 }
