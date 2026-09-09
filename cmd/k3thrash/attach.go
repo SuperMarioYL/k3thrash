@@ -72,7 +72,7 @@ func runAttach(pid int, expertTopoName, tokenSource, outPath string, intervalMs 
 		if err != nil {
 			return err
 		}
-		defer tl.Wait()
+		defer tl.Close()
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

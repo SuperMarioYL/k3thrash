@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseLine(t *testing.T) {
@@ -77,5 +78,44 @@ func TestTailerMonotonicMax(t *testing.T) {
 	tl.Wait()
 	if got := tl.CurrentTokens(); got != 105 {
 		t.Errorf("CurrentTokens = %d, want 105 (monotonic max)", got)
+	}
+}
+
+func TestCloseUnblocksWait(t *testing.T) {
+	// A producer holding the write end open (the README fifo setup):
+	// Wait must block, and Close must unblock it — v0.1.0 had no Close and
+	// attach hung after Ctrl-C in exactly this shape.
+	r, w := io.Pipe()
+	defer w.Close()
+	tl := NewFromReader(r)
+
+	waited := make(chan struct{})
+	go func() { tl.Wait(); close(waited) }()
+	select {
+	case <-waited:
+		t.Fatal("Wait returned while the producer still holds the pipe open")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if err := tl.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	select {
+	case <-waited:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Wait did not return after Close")
+	}
+}
+
+func TestCloseAfterEOF(t *testing.T) {
+	// Regular files hit EOF immediately; Close must still work (and the
+	// tokens read before EOF must survive).
+	tl := NewFromReader(strings.NewReader("token 7\n"))
+	tl.Wait()
+	if err := tl.Close(); err != nil {
+		t.Fatalf("Close after EOF: %v", err)
+	}
+	if got := tl.CurrentTokens(); got != 7 {
+		t.Errorf("CurrentTokens after Close = %d, want 7", got)
 	}
 }

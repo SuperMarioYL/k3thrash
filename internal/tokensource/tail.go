@@ -25,6 +25,10 @@ import (
 type Tailer struct {
 	tokens atomic.Uint64
 	done   chan struct{}
+	// closer, when non-nil, is the underlying reader owned by the Tailer;
+	// Close closes it so a producer-held fifo/pipe can no longer block
+	// shutdown.
+	closer io.Closer
 }
 
 var tokenPatterns = []*regexp.Regexp{
@@ -57,6 +61,9 @@ func ParseLine(line string) (uint64, bool) {
 // pipe; New opens a file path instead.
 func NewFromReader(r io.Reader) *Tailer {
 	t := &Tailer{done: make(chan struct{})}
+	if c, ok := r.(io.Closer); ok {
+		t.closer = c
+	}
 	go t.run(r)
 	return t
 }
@@ -105,4 +112,18 @@ func (t *Tailer) CurrentTokens() uint64 {
 // Wait blocks until the reader goroutine has finished (EOF or error).
 func (t *Tailer) Wait() {
 	<-t.done
+}
+
+// Close releases the token source and waits for the reader goroutine to
+// finish. Closing the underlying reader (file, fifo, stdin, pipe) unblocks a
+// pending Read, so a producer that keeps its write end open — the documented
+// `llama-cli ... 2> /tmp/k3.fifo` setup — can no longer hang attach shutdown
+// after Ctrl-C. On readers that are not io.Closers it degrades to Wait.
+func (t *Tailer) Close() error {
+	var err error
+	if c := t.closer; c != nil {
+		err = c.Close()
+	}
+	t.Wait()
+	return err
 }
