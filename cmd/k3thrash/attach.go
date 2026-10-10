@@ -27,6 +27,7 @@ func newAttachCmd() *cobra.Command {
 		tokenSource string
 		outPath     string
 		intervalMs  int
+		durationS   int
 		noVerdict   bool
 	)
 	c := &cobra.Command{
@@ -39,9 +40,10 @@ samples to trace.json for the report command.
 Linux-only (the sampler reads /proc/<pid>/io). Wire the tokensource to your
 llama.cpp stderr, e.g. ` + "`" + `llama-cli ... 2> /tmp/k3.fifo` + "`" + ` then pass
 --token-source /tmp/k3.fifo. If --token-source is empty, the verdict uses the
-read-rate alone with the topo baseline (no per-token delta).`,
+read-rate alone with the topo baseline (no per-token delta). --duration stops
+the capture automatically and writes the trace (default 0 = run until Ctrl-C).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAttach(pid, expertTopo, tokenSource, outPath, intervalMs, noVerdict)
+			return runAttach(pid, expertTopo, tokenSource, outPath, intervalMs, durationS, noVerdict)
 		},
 	}
 	c.Flags().IntVarP(&pid, "pid", "p", 0, "llama.cpp K3 process id to attach to (required)")
@@ -49,12 +51,13 @@ read-rate alone with the topo baseline (no per-token delta).`,
 	c.Flags().StringVar(&tokenSource, "token-source", "", "path to llama.cpp stderr token-timing stream (fifo/file), or '-' for stdin")
 	c.Flags().StringVarP(&outPath, "out", "o", "trace.json", "output trace JSON path")
 	c.Flags().IntVar(&intervalMs, "interval-ms", 100, "sample interval in ms (default 100 = 10Hz)")
+	c.Flags().IntVar(&durationS, "duration", 0, "stop and write the trace after N seconds (0 = run until Ctrl-C)")
 	c.Flags().BoolVar(&noVerdict, "no-verdict", false, "stream raw read-bytes/s only, skip the verdict line")
 	_ = c.MarkFlagRequired("pid")
 	return c
 }
 
-func runAttach(pid int, expertTopoName, tokenSource, outPath string, intervalMs int, noVerdict bool) error {
+func runAttach(pid int, expertTopoName, tokenSource, outPath string, intervalMs, durationS int, noVerdict bool) error {
 	tt, ok := topo.Lookup(expertTopoName)
 	if !ok {
 		return fmt.Errorf("unknown --expert-topo %q (v0.1 ships only kimi-k3)", expertTopoName)
@@ -75,16 +78,39 @@ func runAttach(pid int, expertTopoName, tokenSource, outPath string, intervalMs 
 		defer tl.Close()
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := attachContext(context.Background(), time.Duration(durationS)*time.Second)
 	defer stop()
 
 	tr := trace.New(tt.Name, pid, tt)
 
 	fmt.Fprintf(os.Stderr, "k3thrash: attaching to pid %d (%s) @%dHz → %s\n",
 		pid, tt.Name, hz, outPath)
+	if durationS > 0 {
+		fmt.Fprintf(os.Stderr, "  --duration %d: the trace is written automatically when the capture window ends.\n", durationS)
+	}
 	fmt.Fprintln(os.Stderr, "  Ctrl-C to stop and write the final trace + verdict.")
 
 	return sampleLoop(ctx, sampler, tl, tr, outPath, interval, noVerdict)
+}
+
+// attachContext composes the attach shutdown context. The signal set is
+// Ctrl-C, SIGTERM, and SIGHUP — a dropped SSH connection or closed terminal
+// delivers SIGHUP, whose default action would terminate the process before
+// any deferred persist runs (v0.2.0 lost the whole captured session on that
+// path). When duration > 0 the context also expires after that long, landing
+// in the same cancel branch that writes the trace (--duration flag, 0 keeps
+// the run-until-interrupt behavior).
+func attachContext(parent context.Context, duration time.Duration) (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	if duration > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, duration)
+		return ctx, func() {
+			cancel()
+			stop()
+		}
+	}
+	return ctx, stop
 }
 
 // sampleInterval sanitizes the --interval-ms flag into the tick cadence and

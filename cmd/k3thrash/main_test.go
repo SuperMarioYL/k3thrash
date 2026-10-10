@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -223,6 +224,65 @@ func TestSampleLoopPersistsTraceOnSamplerError(t *testing.T) {
 	}
 	if len(loaded.Samples) != 3 {
 		t.Errorf("persisted samples = %d, want 3", len(loaded.Samples))
+	}
+	if loaded.FinalVerdict == nil {
+		t.Error("persisted trace has no final verdict")
+	}
+}
+
+func TestAttachContextCancelsOnSIGHUP(t *testing.T) {
+	// SSH disconnect / terminal close delivers SIGHUP; the default action
+	// would terminate the process before any deferred persist runs (v0.2.0
+	// lost the whole captured session on that path). The signal must be
+	// captured and cancel the context instead.
+	ctx, stop := attachContext(context.Background(), 0)
+	defer stop()
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP); err != nil {
+		t.Fatalf("send SIGHUP: %v", err)
+	}
+	select {
+	case <-ctx.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("attachContext did not cancel on SIGHUP")
+	}
+}
+
+func TestAttachContextZeroDurationDoesNotExpire(t *testing.T) {
+	// --duration 0 (default) keeps the run-until-interrupt behavior.
+	ctx, stop := attachContext(context.Background(), 0)
+	defer stop()
+	select {
+	case <-ctx.Done():
+		t.Fatal("attachContext(0) expired without a signal")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestAttachContextTimeoutPersistsTrace(t *testing.T) {
+	// --duration expiry lands in the same ctx.Done branch as Ctrl-C: the
+	// trace must be written even though the sampler never fails and no
+	// signal arrives.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "trace.json")
+	now := time.Now().UTC()
+	samples := make([]procio.IOSample, 0, 200)
+	for i := 0; i < 200; i++ {
+		samples = append(samples, procio.IOSample{T: now.Add(time.Duration(i) * 5 * time.Millisecond), ReadBytes: uint64(i) * 1_000})
+	}
+	fs := &fakeSampler{samples: samples, err: errors.New("never reached")}
+	tr := trace.New("kimi-k3", 456, topo.KimiK3())
+
+	ctx, stop := attachContext(context.Background(), 30*time.Millisecond)
+	defer stop()
+	if err := sampleLoop(ctx, fs, nil, tr, out, 5*time.Millisecond, false); err != nil {
+		t.Fatalf("sampleLoop on duration expiry: %v", err)
+	}
+	loaded, rerr := trace.ReadFile(out)
+	if rerr != nil {
+		t.Fatalf("trace was not persisted on duration expiry: %v", rerr)
+	}
+	if len(loaded.Samples) < 2 {
+		t.Errorf("persisted samples = %d, want at least 2 captured before expiry", len(loaded.Samples))
 	}
 	if loaded.FinalVerdict == nil {
 		t.Error("persisted trace has no final verdict")
