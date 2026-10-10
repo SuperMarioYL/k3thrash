@@ -75,7 +75,7 @@ window: 13:45:00 → 13:45:25   samples: 6
 verdict:
   re-read rate 3.0× reuse: pathological thrash
   re-read rate 3.00× reuse | reuse ratio 0.33 | classification: pathological thrash
-nvme read 77309411328.00 B/token (pathological baseline 25769797776.00 B/token)
+nvme read 77309411328.00 B/token (pathological baseline 25769803776.00 B/token)
 
 re-read-rate sparkline (bytes/token, min-max normalized):
   ▅▅▅▅▅

@@ -22,6 +22,6 @@
     "reread_rate_x": 3.0,
     "classification": "pathological_thrash",
     "nvme_bytes_per_token": 77309411328,
-    "expected_min_read_per_token": 25769797776
+    "expected_min_read_per_token": 25769803776
   }
 }
