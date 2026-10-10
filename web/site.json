@@ -11,7 +11,7 @@
   "meta": {
     "visual_style": "neon-particle",
     "demo_source": "docs/demo-results.json",
-    "content_version": "v0.2.0"
+    "content_version": "v0.3.0"
   },
   "hero": {
     "headline": {
@@ -71,7 +71,7 @@
         "label": "Recorded run",
         "body": "Cross-platform report from the bundled synthetic trace. No Kimi model, NVMe device or Linux process is sampled.",
         "command": "python3 examples/presentation_demo.py",
-        "output": "=== k3thrash report ===\nmodel: kimi-k3   pid: 4242   topo: kimi-k3 (896 experts / 16 active)\nwindow: 13:45:00 → 13:45:25   samples: 6\n\nverdict:\n  re-read rate 3.0× reuse: pathological thrash\n  re-read rate 3.00× reuse | reuse ratio 0.33 | classification: pathological thrash\nnvme read 77309411328.00 B/token (pathological baseline 25769797776.00 B/token)\n\nre-read-rate sparkline (bytes/token, min-max normalized):\n  ▅▅▅▅▅\n  min 77309411328 | max 77309411328 B/token across 5 samples\n\nshare: paste the block above into your thread / issue.\n=== end k3thrash report ===",
+        "output": "=== k3thrash report ===\nmodel: kimi-k3   pid: 4242   topo: kimi-k3 (896 experts / 16 active)\nwindow: 13:45:00 → 13:45:25   samples: 6\n\nverdict:\n  re-read rate 3.0× reuse: pathological thrash\n  re-read rate 3.00× reuse | reuse ratio 0.33 | classification: pathological thrash\nnvme read 77309411328.00 B/token (pathological baseline 25769803776.00 B/token)\n\nre-read-rate sparkline (bytes/token, min-max normalized):\n  ▅▅▅▅▅\n  min 77309411328 | max 77309411328 B/token across 5 samples\n\nshare: paste the block above into your thread / issue.\n=== end k3thrash report ===",
         "image": "/assets/presentation/demo-0-light.svg",
         "imageDark": "/assets/presentation/demo-0-dark.svg"
       }
@@ -140,8 +140,8 @@
           "zh": "处理过程"
         },
         "body": {
-          "en": "procio samples /proc/PID/io; tokensource tails supported llama.cpp timing lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
-          "zh": "procio 采样 /proc/PID/io，tokensource 读取支持的 llama.cpp 时序行；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
+          "en": "procio samples /proc/PID/io; tokensource tails llama.cpp timing lines, including the stock perf printer prompt-eval and decode lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
+          "zh": "procio 采样 /proc/PID/io，tokensource 读取 llama.cpp 时序行（含原生 perf 打印的 prompt-eval 与 decode 行）；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
         },
         "image": {
           "light": "/assets/presentation/process-light.svg",
@@ -162,8 +162,8 @@
           "zh": "k3thrash 的内部流程"
         },
         "body": {
-          "en": "procio samples /proc/PID/io; tokensource tails supported llama.cpp timing lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
-          "zh": "procio 采样 /proc/PID/io，tokensource 读取支持的 llama.cpp 时序行；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
+          "en": "procio samples /proc/PID/io; tokensource tails llama.cpp timing lines, including the stock perf printer prompt-eval and decode lines. trace computes deltas, thrash compares bytes per token against active-expert count times packed-expert bytes, and render produces the verdict and sparkline. The built-in kimi-k3 constants are assumptions of this implementation.",
+          "zh": "procio 采样 /proc/PID/io，tokensource 读取 llama.cpp 时序行（含原生 perf 打印的 prompt-eval 与 decode 行）；trace 计算差值，thrash 将每 token 字节与活跃专家数乘以专家打包字节的基线比较，render 输出裁决与趋势线。内置 kimi-k3 常数是当前实现采用的假设。"
         },
         "image": {
           "light": "/assets/presentation/architecture-light.svg",
@@ -208,8 +208,8 @@
           "zh": "配置"
         },
         "body": {
-          "en": "attach uses --pid, --token-source (file/FIFO or - for stdin), --out, --interval-ms and --no-verdict. Use a positive interval; the default is 100ms. The built-in registry supports kimi-k3 and its aliases. Ratio <1 is healthy_warmup, 1 to <2 is partial_warm, and >=2 is pathological_thrash; these are diagnostic buckets, not independently calibrated expert-residency measurements.",
-          "zh": "attach 提供 --pid、--token-source（文件/FIFO 或 - 标准输入）、--out、--interval-ms 与 --no-verdict。采样间隔应为正数，默认 100ms。内置注册表支持 kimi-k3 及其别名。比值 <1 为 healthy_warmup，1 到 <2 为 partial_warm，>=2 为 pathological_thrash；这些是诊断分类，不是独立标定的专家驻留测量。"
+          "en": "attach uses --pid, --token-source (file/FIFO or - for stdin), --out, --interval-ms, --duration (bounded capture) and --no-verdict. Use a positive interval; the default is 100ms. The built-in registry supports kimi-k3 and its aliases. Ratio <1 is healthy_warmup, 1 to <2 is partial_warm, and >=2 is pathological_thrash; these are diagnostic buckets, not independently calibrated expert-residency measurements.",
+          "zh": "attach 提供 --pid、--token-source（文件/FIFO 或 - 标准输入）、--out、--interval-ms、--duration（限时采样）与 --no-verdict。采样间隔应为正数，默认 100ms。内置注册表支持 kimi-k3 及其别名。比值 <1 为 healthy_warmup，1 到 <2 为 partial_warm，>=2 为 pathological_thrash；这些是诊断分类，不是独立标定的专家驻留测量。"
         }
       },
       {
