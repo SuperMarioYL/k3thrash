@@ -81,6 +81,53 @@ func TestTailerMonotonicMax(t *testing.T) {
 	}
 }
 
+func TestParseTimingLine(t *testing.T) {
+	// Real llama.cpp perf lines (llama_perf_context_print, src/llama-context.cpp).
+	// The v0.2.0 heuristics matched none of these; the total-time line must be
+	// excluded or prompt+decode would double-count.
+	cases := []struct {
+		line       string
+		wantPrompt uint64
+		wantRuns   uint64
+		wantOK     bool
+	}{
+		{"print_timings: prompt eval time =    906.02 ms /    34 tokens (   26.65 ms per token,   37.53 tokens per second)", 34, 0, true},
+		{"print_timings:        eval time =  31680.83 ms /  1000 runs   (   31.68 ms per token,   31.56 tokens per second)", 0, 1000, true},
+		{"print_timings:       total time =  32586.85 ms /  1034 tokens", 0, 0, false},
+		{"print_timings:        load time =    1234.56 ms", 0, 0, false},
+		{"print_timings:    graphs reused =         10", 0, 0, false},
+		{"some unrelated llama.cpp log line", 0, 0, false},
+		{"", 0, 0, false},
+	}
+	for _, c := range cases {
+		gotPrompt, gotRuns, ok := ParseTimingLine(c.line)
+		if ok != c.wantOK || gotPrompt != c.wantPrompt || gotRuns != c.wantRuns {
+			t.Errorf("ParseTimingLine(%q) = (%d, %d, %v), want (%d, %d, %v)",
+				c.line, gotPrompt, gotRuns, ok, c.wantPrompt, c.wantRuns, c.wantOK)
+		}
+	}
+}
+
+func TestTailerLlamaPerfTranscript(t *testing.T) {
+	// Two requests against llama-server with cumulative perf counters:
+	// CurrentTokens must end at prompt 68 + runs 2000 = 2068, never the
+	// double-counted totals (1034 / 2068 tokens) printed by the total lines.
+	transcript := strings.Join([]string{
+		"print_timings:        load time =    1234.56 ms",
+		"print_timings: prompt eval time =    906.02 ms /    34 tokens (   26.65 ms per token,   37.53 tokens per second)",
+		"print_timings:        eval time =  31680.83 ms /  1000 runs   (   31.68 ms per token,   31.56 tokens per second)",
+		"print_timings:       total time =  32586.85 ms /  1034 tokens",
+		"print_timings: prompt eval time =   1812.04 ms /    68 tokens (   26.65 ms per token,   37.53 tokens per second)",
+		"print_timings:        eval time =  63361.66 ms /  2000 runs   (   31.68 ms per token,   31.56 tokens per second)",
+		"print_timings:       total time =  65173.70 ms /  2068 tokens",
+	}, "\n")
+	tl := NewFromReader(strings.NewReader(transcript))
+	tl.Wait()
+	if got := tl.CurrentTokens(); got != 2068 {
+		t.Errorf("CurrentTokens = %d, want 2068 (prompt + runs, total lines ignored)", got)
+	}
+}
+
 func TestCloseUnblocksWait(t *testing.T) {
 	// A producer holding the write end open (the README fifo setup):
 	// Wait must block, and Close must unblock it — v0.1.0 had no Close and
